@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}CareerVerse AI{% endblock %} — Intelligent Career & Document Analysis Platform</title>
+
+  <!-- ============================================================
+       GOOGLE FONTS: Poppins + Inter
+       ============================================================ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- ============================================================
+       LUCIDE ICONS (CDN)
+       ============================================================ -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- ============================================================
+       GLOBAL STYLESHEET
+       ============================================================ -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ============================================================
+     TOAST CONTAINER (global — used by main.js showToast())
+     ============================================================ -->
+<div id="toast-container" role="alert" aria-live="polite"></div>
+
+<!-- ============================================================
+     FLASH MESSAGES
+     BACKEND NOTE: Flask flash() messages render here and are
+     converted into toasts by main.js on page load.
+     ============================================================ -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div id="flash-data" style="display:none;"
+         data-flashes='{{ messages | tojson }}'></div>
+  {% endif %}
+{% endwith %}
+
+<!-- ============================================================
+     AUTH PAGE SHELL (Login / Register)
+     Split-screen layout: left hero + right form
+     ============================================================ -->
+<div id="auth-page" class="page active">
+
+  <!-- ===================== LEFT HERO ===================== -->
+  <div class="login-left">
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- Ambient orbs -->
+    <div class="orb" style="width:400px;height:400px;background:var(--primary);top:-100px;left:-100px;"></div>
+    <div class="orb" style="width:300px;height:300px;background:var(--accent);bottom:-80px;right:-80px;"></div>
+    <div class="orb" style="width:200px;height:200px;background:var(--secondary);top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.2;"></div>
+
+    <!-- Brand -->
+    <div class="ll-brand">
+      <div class="mark">CV</div>
+      <span style="font-family:var(--font-display);font-size:0.95rem;font-weight:700;">CareerVerse AI</span>
+    </div>
+
+    <div class="ll-content">
+      <!-- Animated graphic placeholder -->
+      <div class="ll-graphic">
+        <div class="inner">
+          <svg width="100" height="100" viewBox="0 0 100 100" fill="none">
+            <circle cx="50" cy="50" r="40" stroke="rgba(99,102,241,0.5)" stroke-width="2" stroke-dasharray="8 4"/>
+            <circle cx="50" cy="50" r="26" fill="rgba(99,102,241,0.15)" stroke="rgba(139,92,246,0.4)" stroke-width="1.5"/>
+            <path d="M34 50h32M50 34v32" stroke="rgba(99,102,241,0.7)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="50" cy="50" r="6" fill="var(--primary)"/>
+            <circle cx="50" cy="50" r="3" fill="#fff"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 class="ll-title">
+        <span class="grad-text">CareerVerse</span> AI
+      </h1>
+      <p class="ll-sub">
+        Transform Documents Into Insights.<br/>
+        Analyze plagiarism, evaluate resumes and discover your best-fit career roles through intelligent document analysis.
+      </p>
+      <div class="ll-badges">
+        <span class="ll-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Plagiarism Detection
+        </span>
+        <span class="ll-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Resume Analyzer
+        </span>
+        <span class="ll-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Interview Preparation
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RIGHT FORM (page-specific) ===================== -->
+  <div class="login-right">
+    <div class="login-card">
+      {% block auth_content %}{% endblock %}
+    </div>
+  </div>
+
+</div><!-- /auth-page -->
+
+<!-- ============================================================
+     CORE JAVASCRIPT (shared) + page-specific auth script
+     ============================================================ -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

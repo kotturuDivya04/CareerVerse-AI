@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Plagiarism Detector{% endblock %}
+
+{% block content %}
+<div id="module-plagiarism" class="module-content active page-transition">
+
+  <!-- ============================================================
+       SECTION HEADER
+       ============================================================ -->
+  <div class="section-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="section-icon" style="background:rgba(79,70,229,0.15);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+      </div>
+      <div>
+        <h2 class="section-title">Plagiarism Detector</h2>
+        <p class="section-sub">Compare two documents and identify textual similarities.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       UPLOAD FORM
+       BACKEND NOTE: This form is submitted via fetch() in
+       plagiarism.js as multipart/form-data to
+       POST /api/plagiarism/analyze with fields "file1" and "file2".
+       Flask extracts text, runs the semantic similarity engine,
+       generates a PDF report, saves to the database, and returns
+       JSON with similarity_percent, status, matched_sentences,
+       summary and recommendation.
+       ============================================================ -->
+  <form id="plagiarism-form">
+    <div class="grid-2" style="margin-bottom:24px;">
+
+      <!-- Document 1 -->
+      <div>
+        <div style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px;">Document 1 — Source</div>
+        <div class="drop-zone" id="dz-1" onclick="triggerFileInput('plag-file-1')" ondragover="dzDragOver(event,'dz-1')" ondragleave="dzDragLeave('dz-1')" ondrop="dzDrop(event,'dz-1','plag-file-1-card')">
+          <input type="file" id="plag-file-1" name="file1" style="display:none;" accept=".pdf,.docx,.txt" onchange="showFileCard('plag-file-1','plag-file-1-card','dz-1')"/>
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="dz-title">Drop file here or click to browse</div>
+          <div class="dz-sub">Maximum file size: 10 MB</div>
+          <div class="dz-types">
+            <span class="badge badge-muted">PDF</span>
+            <span class="badge badge-muted">DOCX</span>
+            <span class="badge badge-muted">TXT</span>
+          </div>
+        </div>
+        <div id="plag-file-1-card" style="display:none;margin-top:12px;"></div>
+      </div>
+
+      <!-- Document 2 -->
+      <div>
+        <div style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px;">Document 2 — Compare</div>
+        <div class="drop-zone" id="dz-2" onclick="triggerFileInput('plag-file-2')" ondragover="dzDragOver(event,'dz-2')" ondragleave="dzDragLeave('dz-2')" ondrop="dzDrop(event,'dz-2','plag-file-2-card')">
+          <input type="file" id="plag-file-2" name="file2" style="display:none;" accept=".pdf,.docx,.txt" onchange="showFileCard('plag-file-2','plag-file-2-card','dz-2')"/>
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="dz-title">Drop file here or click to browse</div>
+          <div class="dz-sub">Maximum file size: 10 MB</div>
+          <div class="dz-types">
+            <span class="badge badge-muted">PDF</span>
+            <span class="badge badge-muted">DOCX</span>
+            <span class="badge badge-muted">TXT</span>
+          </div>
+        </div>
+        <div id="plag-file-2-card" style="display:none;margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Analyze button -->
+    <div style="display:flex;justify-content:center;margin-bottom:32px;">
+      <button type="submit" class="btn btn-primary btn-lg" id="plag-analyze-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Analyze Documents
+      </button>
+    </div>
+  </form>
+
+  <!-- ============================================================
+       LOADING STATE
+       Shown by plagiarism.js while the fetch() request is in flight.
+       ============================================================ -->
+  <div id="plag-loading" style="display:none;">
+    <div class="glass loading-state">
+      <div class="spinner"></div>
+      <div class="ls-text">Analyzing document similarity… This may take a moment.</div>
+      <div style="width:300px;">
+        <div class="progress-wrap">
+          <div class="progress-bar" id="plag-progress" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ERROR STATE
+       Shown by plagiarism.js if the API call returns an error.
+       ============================================================ -->
+  <div id="plag-error" class="result-section">
+    <div class="glass" style="padding:32px;">
+      <div class="empty-state">
+        <div class="es-icon" style="background:var(--danger-bg);color:var(--danger);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="es-title">Analysis Failed</div>
+        <div class="es-sub" id="plag-error-message">Something went wrong. Please check your files and try again.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RESULTS
+       Populated dynamically by plagiarism.js from the JSON
+       response of POST /api/plagiarism/analyze.
+       Demo values shown below are placeholders for layout —
+       they are overwritten the moment real results arrive.
+       ============================================================ -->
+  <div id="plag-results" class="result-section">
+    <div class="glass" style="padding:32px;">
+
+      <!-- Score + status -->
+      <div style="display:flex;align-items:center;gap:40px;margin-bottom:32px;flex-wrap:wrap;">
+
+        <!-- Circular progress -->
+        <div style="text-align:center;">
+          <div class="circular-progress" id="plag-circle">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="68" fill="none" stroke="var(--bg-3)" stroke-width="14"/>
+              <!-- BACKEND NOTE: plagiarism.js sets stroke-dashoffset
+                   based on similarity_percent (circumference = 427) -->
+              <circle id="plag-arc" cx="80" cy="80" r="68" fill="none" stroke="var(--warning)" stroke-width="14"
+                stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="427"/>
+            </svg>
+            <div style="z-index:1;">
+              <div class="cp-value" style="color:var(--warning);" id="plag-pct">0%</div>
+              <div class="cp-label">Similarity</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:200px;">
+          <div style="font-family:var(--font-display);font-size:1.5rem;font-weight:800;margin-bottom:8px;">
+            <span id="plag-status-text">—</span>
+          </div>
+          <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;margin-bottom:20px;" id="plag-summary-text">
+            Upload two documents and click "Analyze Documents" to see results here.
+          </p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div style="text-align:center;padding:14px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+              <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:800;" id="plag-matched-sentences">0</div>
+              <div class="text-muted text-xs">Matched Sentences</div>
+            </div>
+            <div style="text-align:center;padding:14px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+              <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:800;" id="plag-matched-paragraphs">0</div>
+              <div class="text-muted text-xs">Matched Paragraphs</div>
+            </div>
+            <div style="text-align:center;padding:14px 20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-md);">
+              <div style="font-family:var(--font-display);font-size:1.4rem;font-weight:800;" id="plag-words-compared">0</div>
+              <div class="text-muted text-xs">Words Compared</div>
+            </div>
+          </div>
+        </div>
+
+        <span class="badge badge-warning" style="font-size:0.85rem;padding:8px 18px;" id="plag-badge">⚠ —</span>
+      </div>
+
+      <!-- ============================================================
+           MATCHED PASSAGES
+           BACKEND NOTE: plagiarism.js dynamically builds one
+           .compare-card per item in matched_sentences[] returned
+           by the API. Each item has:
+             { "doc1_sentence": str, "doc2_sentence": str, "similarity": float }
+           The template below is left empty and populated via JS —
+           the structure mirrors the original prototype's markup
+           so the styling (compare-card / compare-header / compare-body)
+           applies automatically.
+           ============================================================ -->
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:700;margin-bottom:14px;">Matched Passages</div>
+        <div id="plag-matched-list">
+          <!-- Empty state shown until results arrive -->
+          <div class="empty-state">
+            <div class="es-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="es-title">No matches yet</div>
+            <div class="es-sub">Matched passages will appear here after analysis completes.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <!-- BACKEND NOTE: href is set dynamically by plagiarism.js to
+           /download/report/<report_id> once the report_id is
+           returned from the analyze API. -->
+      <a class="btn btn-primary" id="plag-download-btn" href="#" style="pointer-events:none;opacity:0.5;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF Report
+      </a>
+    </div>
+  </div>
+
+</div><!-- /module-plagiarism -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/plagiarism.js') }}"></script>
+{% endblock %}

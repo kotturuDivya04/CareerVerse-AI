@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}CareerVerse AI{% endblock %} — Intelligent Career & Document Analysis Platform</title>
+
+  <!-- ============================================================
+       GOOGLE FONTS: Poppins + Inter
+       ============================================================ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- ============================================================
+       LUCIDE ICONS (CDN)
+       ============================================================ -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- ============================================================
+       GLOBAL STYLESHEET
+       ============================================================ -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ============================================================
+     TOAST CONTAINER (global — used by main.js showToast())
+     ============================================================ -->
+<div id="toast-container" role="alert" aria-live="polite"></div>
+
+<!-- ============================================================
+     FLASH MESSAGES
+     BACKEND NOTE: Flask flash() messages render here and are
+     converted into toasts by main.js on page load.
+     ============================================================ -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div id="flash-data" style="display:none;"
+         data-flashes='{{ messages | tojson }}'></div>
+  {% endif %}
+{% endwith %}
+
+<!-- ============================================================
+     APP SHELL (Sidebar + Navbar + Content)
+     ============================================================ -->
+<div id="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside id="sidebar" role="navigation" aria-label="Main navigation">
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="logo-mark">CV</div>
+      <div class="logo-text">
+        <div class="lname">CareerVerse AI</div>
+        <div class="ltag">v2.6.0 · Platform</div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">Overview</div>
+        <!-- BACKEND NOTE: active state driven by current_page passed from Flask -->
+        <a href="{{ url_for('dashboard') }}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-module="dashboard">
+          <span class="ni-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+          <span class="ni-text">Dashboard</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Analysis Tools</div>
+        <a href="{{ url_for('plagiarism') }}" class="nav-item {% if active_page == 'plagiarism' %}active{% endif %}" data-module="plagiarism">
+          <span class="ni-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg></span>
+          <span class="ni-text">Plagiarism Detector</span>
+        </a>
+        <a href="{{ url_for('resume') }}" class="nav-item {% if active_page == 'resume' %}active{% endif %}" data-module="resume">
+          <span class="ni-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          <span class="ni-text">Resume Analyzer</span>
+        </a>
+        <a href="{{ url_for('interview') }}" class="nav-item {% if active_page == 'interview' %}active{% endif %}" data-module="interview">
+  <span class="ni-icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  </span>
+  <span class="ni-text">Interview Preparation</span>
+</a>
+      </div>
+    </nav>
+
+    <!-- Footer user -->
+    <div class="sidebar-footer">
+      <!-- BACKEND NOTE: Replace "Divya Sharma" / "D" with session user name + initial -->
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ (user_name[0] if user_name else 'D') | upper }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ user_name or 'Divya Sharma' }}</div>
+          <div class="user-role">Pro Plan · Student</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== NAVBAR ===================== -->
+  <header id="navbar" role="banner">
+    <!-- Sidebar toggle -->
+    <button class="icon-btn" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+
+    <!-- Search bar -->
+    <!-- BACKEND NOTE: Hook up to a search endpoint if needed; currently UI-only -->
+    <div class="navbar-search">
+      <div class="input-icon-wrap">
+        <span class="input-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input class="form-input" type="search" placeholder="Search reports, documents…" aria-label="Search" />
+      </div>
+    </div>
+
+    <div class="navbar-actions">
+      <!-- Theme toggle -->
+      <button class="icon-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
+        <svg id="theme-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+
+      <!-- Avatar -->
+      <!-- BACKEND NOTE: GET /logout to end session -->
+      <a href="{{ url_for('logout') }}" class="navbar-avatar" title="Logout">{{ (user_name[0] if user_name else 'D') | upper }}</a>
+    </div>
+  </header>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <main id="main-content" role="main" aria-label="Page content">
+    {% block content %}{% endblock %}
+  </main><!-- /main-content -->
+
+</div><!-- /app-shell -->
+
+<!-- ============================================================
+     CORE JAVASCRIPT (shared across all app pages)
+     ============================================================ -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

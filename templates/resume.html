@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Resume Analyzer{% endblock %}
+
+{% block content %}
+<div id="module-resume" class="module-content active page-transition">
+
+  <!-- ============================================================
+       SECTION HEADER
+       ============================================================ -->
+  <div class="section-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="section-icon" style="background:rgba(6,182,212,0.15);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <h2 class="section-title">Resume Analyzer</h2>
+        <p class="section-sub">Evaluate your resume's ATS score and discover your best-fit career roles — all from one upload.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       UPLOAD + ROLE SELECTION FORM
+       BACKEND NOTE: Submitted via fetch() in resume.js as
+       multipart/form-data to POST /api/resume/analyze with fields
+       "file" and "role". Flask extracts resume text, runs BOTH the
+       ATS scoring engine and the Job Role Recommender engine in
+       the same request, generates PDF report(s), saves to the
+       database, and returns one JSON response containing both
+       ats_score-related fields and a nested "job_recommendations"
+       object. There is no separate upload step for the recommender.
+       ============================================================ -->
+  <form id="resume-form">
+    <div class="glass" style="padding:28px;max-width:680px;margin-bottom:28px;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Upload resume -->
+        <div class="form-group">
+          <label class="form-label">Upload Resume</label>
+          <div class="drop-zone" id="dz-resume" onclick="triggerFileInput('resume-file')" ondragover="dzDragOver(event,'dz-resume')" ondragleave="dzDragLeave('dz-resume')" ondrop="dzDrop(event,'dz-resume','resume-file-card')" style="padding:28px;">
+            <input type="file" id="resume-file" name="file" style="display:none;" accept=".pdf,.docx" onchange="showFileCard('resume-file','resume-file-card','dz-resume')"/>
+            <div class="dz-icon" style="background:rgba(6,182,212,0.15);color:var(--secondary);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="dz-title">Upload your resume</div>
+            <div class="dz-sub">PDF or DOCX · Max 5 MB</div>
+          </div>
+          <div id="resume-file-card" style="display:none;margin-top:10px;"></div>
+        </div>
+
+        <!-- Role selection -->
+        <div class="form-group">
+          <label class="form-label" for="role-select">Target Role</label>
+          <div style="position:relative;">
+            <select class="form-select" id="role-select" name="role">
+              <option value="" disabled selected>Select your target role…</option>
+              <option value="Data Analyst">Data Analyst</option>
+              <option value="Data Scientist">Data Scientist</option>
+              <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+              <option value="Data Engineer">Data Engineer</option>
+              <option value="Python Developer">Python Developer</option>
+              <option value="Backend Developer">Backend Developer</option>
+              <option value="Frontend Developer">Frontend Developer</option>
+              <option value="Full Stack Developer">Full Stack Developer</option>
+            </select>
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+          <div class="text-xs text-muted" style="margin-top:4px;">
+            This role is used for both ATS scoring and ranking your top recommended roles below.
+          </div>
+        </div>
+
+        <!-- Analyze -->
+        <button type="submit" class="btn btn-secondary btn-full" id="resume-analyze-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Analyze Resume
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ============================================================
+       LOADING STATE
+       ============================================================ -->
+  <div id="resume-loading" style="display:none;">
+    <div class="glass loading-state" style="max-width:680px;">
+      <div class="spinner" style="border-top-color:var(--secondary);"></div>
+      <div class="ls-text">Evaluating your resume and matching it against career roles…</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ERROR STATE
+       ============================================================ -->
+  <div id="resume-error" class="result-section">
+    <div class="glass" style="padding:32px;max-width:680px;">
+      <div class="empty-state">
+        <div class="es-icon" style="background:var(--danger-bg);color:var(--danger);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="es-title">Analysis Failed</div>
+        <div class="es-sub" id="resume-error-message">Something went wrong. Please check your resume and try again.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ATS RESULTS
+       Populated by resume.js → renderAtsResults() from the same
+       JSON response that POST /api/resume/analyze returns.
+       ============================================================ -->
+  <div id="resume-ats-results" class="result-section">
+
+    <!-- Score cards row -->
+    <div class="grid-3" style="margin-bottom:24px;max-width:900px;">
+      <div class="stat-card s-secondary" style="text-align:center;">
+        <div style="margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:2.5rem;font-weight:900;color:var(--secondary);" id="resume-ats-score">0</div>
+        <div class="stat-label" style="font-weight:700;">ATS Score</div>
+        <div class="progress-wrap" style="margin-top:10px;">
+          <div class="progress-bar" id="resume-ats-score-bar" style="width:0%;background:linear-gradient(90deg,var(--secondary),var(--success));"></div>
+        </div>
+      </div>
+
+      <div class="stat-card s-primary" style="text-align:center;">
+        <div style="margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-light)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:2.5rem;font-weight:900;color:var(--primary-light);" id="resume-role-match-score">0%</div>
+        <div class="stat-label" style="font-weight:700;">Role Match</div>
+        <div class="progress-wrap" style="margin-top:10px;">
+          <div class="progress-bar" id="resume-role-match-bar" style="width:0%;"></div>
+        </div>
+      </div>
+
+      <div class="stat-card s-accent" style="text-align:center;">
+        <div style="margin-bottom:8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:2.5rem;font-weight:900;color:var(--accent);" id="resume-skills-matched-count">0/0</div>
+        <div class="stat-label" style="font-weight:700;">Skills Matched</div>
+        <div class="progress-wrap" style="margin-top:10px;">
+          <div class="progress-bar" id="resume-skills-matched-bar" style="width:0%;background:linear-gradient(90deg,var(--accent),var(--primary));"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills Found / Missing Skills -->
+    <div class="grid-2" style="max-width:900px;margin-bottom:24px;">
+      <div class="glass" style="padding:24px;">
+        <div style="font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="9 11 12 14 22 4"/></svg>
+          Skills Found
+        </div>
+        <div id="resume-skills-found-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <!-- resume.js injects .chip.chip-success elements here -->
+        </div>
+      </div>
+      <div class="glass" style="padding:24px;">
+        <div style="font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Missing Skills
+        </div>
+        <div id="resume-missing-skills-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <!-- resume.js injects .chip.chip-missing elements here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Strengths / Suggestions -->
+    <div class="grid-2" style="max-width:900px;margin-bottom:24px;">
+      <div class="glass" style="padding:24px;">
+        <div style="font-weight:700;margin-bottom:14px;">Strengths</div>
+        <div id="resume-strengths-list" style="display:flex;flex-direction:column;gap:10px;">
+          <!-- resume.js injects .rec-card elements here -->
+        </div>
+      </div>
+      <div class="glass" style="padding:24px;">
+        <div style="font-weight:700;margin-bottom:14px;">Suggestions</div>
+        <div id="resume-suggestions-list" style="display:flex;flex-direction:column;gap:10px;">
+          <!-- resume.js injects .rec-card elements here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Download ATS report -->
+    <!-- BACKEND NOTE: href set dynamically by resume.js to
+         /download/report/<report_id> once available. -->
+    <a class="btn btn-secondary" id="resume-download-btn" href="#" style="pointer-events:none;opacity:0.5;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download Resume Report PDF
+    </a>
+  </div><!-- /resume-ats-results -->
+
+  <!-- ============================================================
+       JOB ROLE RECOMMENDER RESULTS
+       Appears directly below the ATS results, populated from the
+       SAME analyze response — there is intentionally no separate
+       page, route, or upload step for this section. It is part of
+       the Resume Analyzer module only.
+       ============================================================ -->
+  <div id="resume-job-recommender-results" class="result-section" style="margin-top:8px;">
+
+    <div class="section-header" style="margin-bottom:20px;max-width:900px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="section-icon" style="width:40px;height:40px;background:rgba(139,92,246,0.15);">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:1.15rem;">Recommended Job Roles</div>
+          <div class="text-sm text-muted">Ranked by how well your resume matches each role's skill profile</div>
+        </div>
+      </div>
+      <!-- BACKEND NOTE: href set dynamically by resume.js to
+           /download/report/<report_id> for the job recommendation PDF. -->
+      <a class="btn btn-accent btn-sm" id="resume-job-download-btn" href="#" style="pointer-events:none;opacity:0.5;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Role Report PDF
+      </a>
+    </div>
+
+    <div id="resume-role-cards-list" class="grid-auto" style="max-width:900px;">
+      <!-- resume.js injects .role-card elements here, sorted by
+           match_percent descending. The top-ranked role gets the
+           "top-match" class + "Top Match" badge automatically. -->
+    </div>
+  </div><!-- /resume-job-recommender-results -->
+
+</div><!-- /module-resume -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/resume.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Interview Preparation{% endblock %}
+
+{% block content %}
+<div id="module-interview" class="module-content active page-transition">
+
+  <!-- ============================================================
+       SECTION HEADER
+       ============================================================ -->
+  <div class="section-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="section-icon" style="background:rgba(34,197,94,0.15);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div>
+        <h2 class="section-title">Interview Preparation</h2>
+        <p class="section-sub">Generate role-specific interview questions from your resume.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       UPLOAD + GENERATE FORM
+       BACKEND NOTE: Submitted via fetch() in interview.js as
+       multipart/form-data to POST /api/interview/generate with
+       fields "file" and "role". Flask extracts resume text,
+       generates categorised questions, optionally saves a PDF,
+       and returns JSON: { role, questions: { technical[], hr[],
+       project[], behavioral[] }, total_count, report_id }.
+       ============================================================ -->
+  <form id="interview-form">
+    <div class="glass" style="padding:28px;max-width:680px;margin-bottom:28px;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Upload resume -->
+        <div class="form-group">
+          <label class="form-label">Upload Resume</label>
+          <div class="drop-zone" id="dz-interview" onclick="triggerFileInput('interview-file')" ondragover="dzDragOver(event,'dz-interview')" ondragleave="dzDragLeave('dz-interview')" ondrop="dzDrop(event,'dz-interview','interview-file-card')" style="padding:24px;">
+            <input type="file" id="interview-file" name="file" style="display:none;" accept=".pdf,.docx" onchange="showFileCard('interview-file','interview-file-card','dz-interview')"/>
+            <div class="dz-icon" style="background:rgba(34,197,94,0.15);color:var(--success);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="dz-title">Upload your resume for personalized questions</div>
+            <div class="dz-sub">PDF or DOCX</div>
+          </div>
+          <div id="interview-file-card" style="display:none;margin-top:10px;"></div>
+        </div>
+
+        <!-- Target role -->
+        <div class="form-group">
+          <label class="form-label" for="interview-role-select">Target Role</label>
+          <div style="position:relative;">
+            <select class="form-select" id="interview-role-select" name="role">
+              <option value="" disabled selected>Select a target role…</option>
+              <option value="Data Analyst">Data Analyst</option>
+              <option value="Data Scientist">Data Scientist</option>
+              <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+              <option value="Data Engineer">Data Engineer</option>
+              <option value="Python Developer">Python Developer</option>
+              <option value="Backend Developer">Backend Developer</option>
+              <option value="Frontend Developer">Frontend Developer</option>
+              <option value="Full Stack Developer">Full Stack Developer</option>
+            </select>
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Generate -->
+        <button type="submit" class="btn btn-primary btn-full" id="interview-generate-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Generate Interview Questions
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ============================================================
+       LOADING STATE
+       ============================================================ -->
+  <div id="interview-loading" style="display:none;">
+    <div class="glass loading-state" style="max-width:680px;">
+      <div class="spinner"></div>
+      <div class="ls-text">Crafting personalized interview questions from your resume…</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ERROR STATE
+       ============================================================ -->
+  <div id="interview-error" class="result-section">
+    <div class="glass" style="padding:32px;max-width:680px;">
+      <div class="empty-state">
+        <div class="es-icon" style="background:var(--danger-bg);color:var(--danger);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="es-title">Generation Failed</div>
+        <div class="es-sub" id="interview-error-message">Something went wrong. Please check your resume and try again.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       RESULTS — ACCORDION
+       BACKEND NOTE: interview.js fills #interview-count-text and
+       builds the 4 accordions below from the questions{} object
+       returned by POST /api/interview/generate. Each .q-card is
+       generated dynamically per question string; this static
+       markup defines the structure/classes JS will reuse.
+       ============================================================ -->
+  <div id="interview-results" class="result-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;max-width:860px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:700;font-size:1.1rem;" id="interview-count-text">0 Questions Generated</div>
+        <div class="text-muted text-sm" id="interview-role-text">Based on your resume</div>
+      </div>
+      <!-- BACKEND NOTE: href set dynamically by interview.js to
+           /download/report/<report_id> once available. -->
+      <a class="btn btn-primary btn-sm" id="interview-download-btn" href="#" style="pointer-events:none;opacity:0.5;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export PDF
+      </a>
+    </div>
+
+    <div style="max-width:860px;display:flex;flex-direction:column;gap:10px;">
+
+      <!-- Technical Questions -->
+      <div class="accordion-item open" data-category="technical">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="ah-title">
+            <span style="width:32px;height:32px;border-radius:8px;background:rgba(79,70,229,0.15);display:flex;align-items:center;justify-content:center;color:var(--primary-light);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </span>
+            Technical Questions
+            <span class="badge badge-primary" id="interview-technical-count">0 Qs</span>
+          </div>
+          <span class="accordion-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-content" id="interview-technical-list">
+            <!-- interview.js injects .q-card elements here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- HR Questions -->
+      <div class="accordion-item" data-category="hr">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="ah-title">
+            <span style="width:32px;height:32px;border-radius:8px;background:rgba(6,182,212,0.15);display:flex;align-items:center;justify-content:center;color:var(--secondary);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            HR Questions
+            <span class="badge badge-muted" id="interview-hr-count">0 Qs</span>
+          </div>
+          <span class="accordion-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-content" id="interview-hr-list">
+            <!-- interview.js injects .q-card elements here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Questions -->
+      <div class="accordion-item" data-category="project">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="ah-title">
+            <span style="width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;color:var(--accent);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </span>
+            Project Questions
+            <span class="badge badge-muted" id="interview-project-count">0 Qs</span>
+          </div>
+          <span class="accordion-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-content" id="interview-project-list">
+            <!-- interview.js injects .q-card elements here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Behavioral Questions -->
+      <div class="accordion-item" data-category="behavioral">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="ah-title">
+            <span style="width:32px;height:32px;border-radius:8px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;color:var(--warning);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            Behavioral Questions
+            <span class="badge badge-muted" id="interview-behavioral-count">0 Qs</span>
+          </div>
+          <span class="accordion-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-content" id="interview-behavioral-list">
+            <!-- interview.js injects .q-card elements here -->
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /accordion list -->
+  </div><!-- /interview-results -->
+
+</div><!-- /module-interview -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/interview.js') }}"></script>
+{% endblock %}
