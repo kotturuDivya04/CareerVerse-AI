@@ -1,7 +1,7 @@
 # 🚀 CareerVerse AI
 
 > **AI-Powered Career Intelligence Platform**
-> An intelligent web application that helps users analyze resumes, detect plagiarism, and prepare for interviews using AI.
+>* An intelligent web application that helps users analyze resumes, detect plagiarism, and prepare for interviews using AI.
 
 ---
 
