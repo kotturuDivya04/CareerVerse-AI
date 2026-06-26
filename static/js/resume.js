@@ -264,13 +264,6 @@ function renderJobRecommendations(jobData) {
       </div>`;
   }).join('');
 
-  const downloadBtn = document.getElementById('resume-job-download-btn');
-  if (downloadBtn && jobData.report_id) {
-    downloadBtn.href = `/download/report/${jobData.report_id}`;
-    downloadBtn.style.pointerEvents = 'auto';
-    downloadBtn.style.opacity = '1';
-  }
-
   section.classList.add('show');
 }
 

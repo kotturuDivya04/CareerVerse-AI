@@ -123,10 +123,47 @@ def create_app():
                      .count())
             result.append({'day': day.strftime('%a'), 'count': count})
         return result
+    def build_job_recommendations(resume_text):
+        """
+        Generate the top 5 recommended roles using the existing ATS engine.
+        """
+        candidate_roles = [
+            "Data Analyst",
+            "Business Analyst",
+            "Data Scientist",
+            "Machine Learning Engineer",
+            "Data Engineer",
+            "Python Developer",
+            "Backend Developer",
+            "Frontend Developer",
+            "Full Stack Developer"
+        ]
 
+        recommendations = []
+
+        for role in candidate_roles:
+
+            result = analyze_resume(resume_text, role)
+
+            recommendations.append({
+                "role": role,
+                "match_percent": result.get("role_match_score", 0),
+                "matched_skills": result.get("skills_found", []),
+                "missing_skills": result.get("missing_skills", []),
+                "strengths": result.get("strengths", []),
+                "suggestions": result.get("suggestions", [])
+            })
+
+        recommendations.sort(
+            key=lambda x: x["match_percent"],
+            reverse=True
+        )
+
+        return recommendations[:5]  
+    
     # =========================================================================
     # AUTH ROUTES
-    # =========================================================================
+    # =========================================================================  
 
     @app.route('/')
     def index():
@@ -433,6 +470,7 @@ def create_app():
 
         # ---- ATS Analysis ----
         ats_result = analyze_resume(resume_text, role)
+        recommended_roles = build_job_recommendations(resume_text)
 
         ats_report_filename = f"resume_{uuid.uuid4().hex}.pdf"
         ats_report_path     = os.path.join(app.config['REPORTS_FOLDER'], ats_report_filename)
@@ -495,78 +533,10 @@ def create_app():
             'suggestions': ats_result['suggestions'],
             'section_scores': ats_result['section_scores'],
             'job_recommendations': {
-                'report_id': None,
-                'recommended_roles': []
-            }
+            'report_id': None,
+            'recommended_roles': recommended_roles
+}
         })
-    
-        '''# ---- Job Role Recommender (same request, same resume text) ----
-        rec_result = recommend_roles(resume_text)
-
-        rec_report_filename = f"jobrec_{uuid.uuid4().hex}.pdf"
-        rec_report_path     = os.path.join(app.config['REPORTS_FOLDER'], rec_report_filename)
-        generate_recommender_pdf(
-            output_path       = rec_report_path,
-            user_name         = session['user_name'],
-            resume_name       = file.filename,
-            recommended_roles = rec_result['recommended_roles'],
-        )
-
-        rec_report = Report(
-            user_id      = user_id,
-            report_type  = 'job_recommendation',
-            filename     = file.filename,
-            pdf_filename = rec_report_filename,
-            score        = rec_result['recommended_roles'][0]['match_percent']
-                           if rec_result['recommended_roles'] else 0,
-            status_label = rec_result['recommended_roles'][0]['role']
-                           if rec_result['recommended_roles'] else '',
-            created_at   = datetime.utcnow()
-        )
-        db.session.add(rec_report)
-        db.session.flush()
-
-        job_rec = JobRecommendation(
-            report_id         = rec_report.id,
-            resume_report_id  = resume_report.id,
-            user_id           = user_id,
-            resume_name       = file.filename,
-            top_role          = rec_result['recommended_roles'][0]['role']
-                                if rec_result['recommended_roles'] else '',
-            top_match_percent = rec_result['recommended_roles'][0]['match_percent']
-                                if rec_result['recommended_roles'] else 0,
-            recommended_roles = json.dumps(rec_result['recommended_roles']),
-            extracted_skills  = json.dumps(rec_result.get('extracted_skills', [])),
-            pdf_filename      = rec_report_filename,
-            created_at        = datetime.utcnow()
-        )
-        db.session.add(job_rec)
-        db.session.commit()
-    
-        log_activity(
-            user_id      = user_id,
-            action       = 'ATS Score Calculated',
-            detail       = f"Top role: {job_rec.top_role} ({job_rec.top_match_percent:.0f}%)",
-            report_type  = 'job_recommendation',
-            report_id    = rec_report.id,
-        )
-
-        delete_upload(fpath)
-
-        return jsonify({
-            'report_id':        ats_report.id,
-            'ats_score':        round(ats_result['ats_score'], 2),
-            'role_match_score': round(ats_result['role_match_score'], 2),
-            'skills_found':     ats_result['skills_found'],
-            'missing_skills':   ats_result['missing_skills'],
-            'strengths':        ats_result['strengths'],
-            'suggestions':      ats_result['suggestions'],
-            'section_scores':   ats_result['section_scores'],
-            'job_recommendations': {
-                'report_id':         rec_report.id,
-                'recommended_roles': rec_result['recommended_roles'],
-            },
-        })'''
 
     # =========================================================================
     # INTERVIEW PREPARATION
