@@ -156,7 +156,7 @@ http://127.0.0.1:5000
 
 ## 📑 Sample Plagiarism Report
 
-![](assets/plagiarism_report.png)
+![](assets/plagiarismReport.png)
 
 ---
 
